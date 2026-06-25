@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BSOD</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%; height: 100%;
+      background: #0a57ac;
+      color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      overflow: hidden;
+      user-select: none;
+    }
+    #container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100%;
+      padding: 10% 12%;
+    }
+    .emoji {
+      font-size: 72px;
+      margin-bottom: 28px;
+      line-height: 1;
+    }
+    h1 {
+      font-size: 36px;
+      font-weight: 300;
+      margin-bottom: 32px;
+      line-height: 1.2;
+    }
+    p {
+      font-size: 16px;
+      line-height: 1.7;
+      max-width: 600px;
+      margin-bottom: 12px;
+      font-weight: 300;
+      opacity: 0.9;
+    }
+    #progress-line {
+      margin-top: 36px;
+      font-size: 16px;
+      font-weight: 300;
+    }
+    #pct {
+      font-weight: 600;
+    }
+    #qr-area {
+      margin-top: 48px;
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+    #qr-box {
+      width: 80px; height: 80px;
+      background: #fff;
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    #qr-box svg { width: 64px; height: 64px; }
+    #qr-text { font-size: 13px; opacity: 0.8; line-height: 1.6; max-width: 320px; }
+    #stop-code {
+      position: fixed;
+      bottom: 8%;
+      left: 12%;
+      font-size: 13px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div class="emoji">:(</div>
+    <h1>Your PC ran into a problem and<br>needs to restart.</h1>
+    <p>We're just collecting some error info, and then we'll restart for you.</p>
+    <p>If you'd like to know more, you can search online later for this error:</p>
+    <p><strong>SYSTEM_THREAD_EXCEPTION_NOT_HANDLED</strong></p>
+    <div id="progress-line"><span id="pct">0</span>% complete</div>
+    <div id="qr-area">
+      <div id="qr-box">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Fake QR code blocks -->
+          <rect x="4" y="4" width="24" height="24" rx="2" fill="#000"/>
+          <rect x="8" y="8" width="16" height="16" fill="#fff"/>
+          <rect x="12" y="12" width="8" height="8" fill="#000"/>
+          <rect x="36" y="4" width="24" height="24" rx="2" fill="#000"/>
+          <rect x="40" y="8" width="16" height="16" fill="#fff"/>
+          <rect x="44" y="12" width="8" height="8" fill="#000"/>
+          <rect x="4" y="36" width="24" height="24" rx="2" fill="#000"/>
+          <rect x="8" y="40" width="16" height="16" fill="#fff"/>
+          <rect x="12" y="44" width="8" height="8" fill="#000"/>
+          <rect x="36" y="36" width="4" height="4" fill="#000"/>
+          <rect x="44" y="36" width="4" height="4" fill="#000"/>
+          <rect x="52" y="36" width="8" height="4" fill="#000"/>
+          <rect x="36" y="44" width="8" height="4" fill="#000"/>
+          <rect x="48" y="44" width="4" height="4" fill="#000"/>
+          <rect x="36" y="52" width="4" height="8" fill="#000"/>
+          <rect x="44" y="52" width="8" height="4" fill="#000"/>
+          <rect x="56" y="48" width="4" height="12" fill="#000"/>
+        </svg>
+      </div>
+      <div id="qr-text">For more information about this issue and possible fixes, visit<br><strong>https://www.windows.com/stopcode</strong></div>
+    </div>
+  </div>
+  <div id="stop-code">Stop code: SYSTEM_THREAD_EXCEPTION_NOT_HANDLED</div>
+
+  <script>
+    // Passcode is injected by main process via executeJavaScript after page load.
+    // We poll briefly to let it arrive before we start listening.
+    let passcode = '';
+    let buffer = '';
+
+    // ── Block every possible close/escape shortcut at the browser level ──
+    const BLOCKED_KEYS = new Set(['Escape', 'F4', 'F11', 'Tab']);
+    window.addEventListener('keydown', (e) => {
+      if (
+        e.altKey ||
+        e.ctrlKey ||
+        e.metaKey ||
+        e.key === 'Meta' ||
+        e.key === 'OS' ||
+        BLOCKED_KEYS.has(e.key)
+      ) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        return;
+      }
+
+      // Rolling buffer passcode check — only active once passcode is loaded
+      if (passcode && e.key.length === 1) {
+        buffer += e.key.toLowerCase();
+        if (buffer.length > passcode.length * 8) {
+          buffer = buffer.slice(-passcode.length * 8);
+        }
+        if (buffer.endsWith(passcode)) {
+          doUnlock();
+        }
+      }
+    }, true);
+
+    // Block right-click context menu
+    window.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Prevent accidental unload
+    window.addEventListener('beforeunload', (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+    });
+
+    function doUnlock() {
+      if (window.bsod) {
+        window.bsod.unlock();
+      }
+    }
+
+    // Poll for injected passcode (main injects it after did-finish-load)
+    const pollPasscode = setInterval(() => {
+      if (typeof window.__BSOD_PASSCODE__ !== 'undefined') {
+        passcode = (window.__BSOD_PASSCODE__ || '').toLowerCase();
+        clearInterval(pollPasscode);
+        // If no passcode at all, schedule auto-unlock after progress bar
+        if (!passcode) scheduleAutoUnlock();
+      }
+    }, 50);
+
+    // ── Progress bar ──
+    let autoUnlockReady = false;
+    let pct = 0;
+    const pctEl = document.getElementById('pct');
+    const interval = setInterval(() => {
+      const step = pct < 40 ? 2 : pct < 75 ? 1 : pct < 95 ? 0.5 : 0.2;
+      pct = Math.min(100, pct + step + Math.random() * step);
+      pctEl.textContent = Math.floor(pct);
+      if (pct >= 100) {
+        clearInterval(interval);
+        pctEl.textContent = '100';
+        autoUnlockReady = true;
+        // Auto-unlock if no passcode was set
+        if (!passcode) setTimeout(() => doUnlock(), 600);
+      }
+    }, 80);
+
+    function scheduleAutoUnlock() {
+      if (autoUnlockReady) setTimeout(() => doUnlock(), 600);
+      // If bar not done yet, the interval above will handle it
+    }
+  </script>
+</body>
+</html>
