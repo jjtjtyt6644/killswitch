@@ -1,5 +1,10 @@
 # Killswitch
 
+
+## NOTICE
+
+**COUNTLESS BUGS ARE PRESENT IN THIS PROJECT, only in the stealth screen and bsod screen, other func remain functional.**
+
 One hotkey to kill every game on your screen, instantly.
 
 Built with Electron. Runs in your system tray. Does exactly what it says.
